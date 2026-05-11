@@ -1,0 +1,12 @@
+[Unit]
+Description=Todo-Wallpaper Initial Render
+After=graphical-session-reach.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/thio/projects/random/todo-wallpaper/render.py
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical-session.target
