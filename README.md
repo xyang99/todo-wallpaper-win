@@ -311,7 +311,7 @@ todo remove 1
 
 ## License
 
-MIT (or your preferred license)
+MIT 
 
 ## Support
 
