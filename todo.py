@@ -1,5 +1,5 @@
 # todo.py
-
+from urllib.parse import unquote
 from pathlib import Path
 import json
 import subprocess
@@ -12,23 +12,65 @@ TODO_FILE = PROJECT_DIR / "todos.json"
 WALLPAPER_FILE = PROJECT_DIR / "wallpaper.png"
 
 
-def load_todos() -> list[str]:
+def _migrate_data(raw_data) -> dict:
+    """Migrate old array format to new dict format with metadata."""
+    if isinstance(raw_data, list):
+        # Old format: just an array of tasks
+        return {"tasks": raw_data, "wallpaper_path": None}
+    elif isinstance(raw_data, dict):
+        # Already in new format
+        if "tasks" not in raw_data:
+            return {"tasks": [], "wallpaper_path": None}
+        return raw_data
+    return {"tasks": [], "wallpaper_path": None}
+
+
+def _load_raw_data() -> dict:
+    """Load raw data from JSON file (internal)."""
     if not TODO_FILE.exists():
-        return []
+        return {"tasks": [], "wallpaper_path": None}
 
     try:
         with open(TODO_FILE, "r", encoding="utf-8") as file:
             content = file.read().strip()
             if not content:
-                return []
-            return json.loads(content)
+                return {"tasks": [], "wallpaper_path": None}
+            raw_data = json.loads(content)
+            return _migrate_data(raw_data)
     except json.JSONDecodeError:
-        return []
+        return {"tasks": [], "wallpaper_path": None}
+
+
+def _save_raw_data(data: dict) -> None:
+    """Save raw data to JSON file (internal)."""
+    with open(TODO_FILE, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=2)
+
+
+def load_todos() -> list[str]:
+    """Load list of tasks."""
+    data = _load_raw_data()
+    return data.get("tasks", [])
 
 
 def save_todos(todos: list[str]) -> None:
-    with open(TODO_FILE, "w", encoding="utf-8") as file:
-        json.dump(todos, file, indent=2)
+    """Save list of tasks while preserving metadata."""
+    data = _load_raw_data()
+    data["tasks"] = todos
+    _save_raw_data(data)
+
+
+def load_wallpaper_path() -> str | None:
+    """Load stored original wallpaper path."""
+    data = _load_raw_data()
+    return data.get("wallpaper_path")
+
+
+def save_wallpaper_path(path: str | None) -> None:
+    """Save original wallpaper path."""
+    data = _load_raw_data()
+    data["wallpaper_path"] = path
+    _save_raw_data(data)
 
 
 def set_gnome_wallpaper(image_path: Path) -> bool:
@@ -82,6 +124,50 @@ def set_feh_wallpaper(image_path: Path) -> bool:
         return False
 
 
+def get_current_wallpaper() -> str | None:
+    """Get current wallpaper path from GNOME gsettings or feh cache."""
+    # Try GNOME gsettings first
+    try:
+        result = subprocess.run(
+            [
+                "gsettings",
+                "get",
+                "org.gnome.desktop.background",
+                "picture-uri",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # gsettings returns quoted string like "'file:///path/to/image'"
+        wallpaper_uri = result.stdout.strip().strip("'\"")
+        if wallpaper_uri:
+            # If it's a file URI, convert to a path string; don't require the file to exist
+            if wallpaper_uri.startswith("file://"):
+                return wallpaper_uri[7:]
+            return wallpaper_uri
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+    # Try feh cache as fallback
+    try:
+        feh_cache = Path.home() / ".fehbg"
+        if feh_cache.exists():
+            with open(feh_cache, "r") as f:
+                content = f.read()
+                # feh cache has format: feh --bg-fill '/path/to/image'
+                # Extract path between quotes
+                start = content.find("'")
+                end = content.rfind("'")
+                if start >= 0 and end > start:
+                    path = content[start + 1 : end]
+                    return path
+    except (OSError, IOError):
+        pass
+
+    return None
+
+
 def render() -> None:
     try:
         result = subprocess.run(
@@ -110,8 +196,32 @@ def render() -> None:
         exit(1)
 
 
+def restore_wallpaper(wallpaper_path: str) -> bool:
+    """Restore wallpaper from stored path."""
+    path = Path(wallpaper_path)
+    if not path.exists():
+        return False
+
+    if set_gnome_wallpaper(path):
+        return True
+    elif set_feh_wallpaper(path):
+        return True
+    return False
+
+
 def add_todo(text: str) -> None:
+    # Step 1: Check if list is empty
     todos = load_todos()
+    is_first_task = len(todos) == 0
+
+    # Step 2: If empty, record current wallpaper path
+    if is_first_task:
+        current_wallpaper = get_current_wallpaper()
+        if current_wallpaper:
+            save_wallpaper_path(current_wallpaper)
+            print(f"✓ Stored original wallpaper: {current_wallpaper}")
+
+    # Step 3-4: Add task and generate/update wallpaper
     todos.append(text)
     save_todos(todos)
     print(f"✓ Added: {text}")
@@ -129,7 +239,73 @@ def remove_todo(index: int) -> None:
     removed = todos.pop(todo_index)
     save_todos(todos)
     print(f"✓ Removed: {removed}")
-    render()
+
+    # Check if list is now empty
+    if len(todos) == 0:
+        stored_wallpaper = load_wallpaper_path()
+        stored_wallpaper = Path(unquote(stored_wallpaper))
+
+        # Step 1: Check if wallpaper_path is null
+        if stored_wallpaper is None:
+            # Step 2: Set fallback wallpaper
+            result = subprocess.run(
+                [sys.executable, str(PROJECT_DIR / "render.py"), "--done"],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=str(PROJECT_DIR),
+            )
+            if result.returncode == 0:
+                time.sleep(0.5)
+                if set_gnome_wallpaper(WALLPAPER_FILE):
+                    print("✓ Wallpaper set to 'All Tasks Done!' (GNOME)")
+                elif set_feh_wallpaper(WALLPAPER_FILE):
+                    print("✓ Wallpaper set to 'All Tasks Done!' (feh)")
+                else:
+                    print("✗ Failed to set wallpaper")
+            else:
+                print("✗ Failed to generate 'all tasks done' image")
+        else:
+            # Step 3-5: wallpaper_path is not null, check if path exists
+            if Path(stored_wallpaper).exists():
+                # Path exists: restore wallpaper and clear the path in todos.json
+                if restore_wallpaper(stored_wallpaper):
+                    save_wallpaper_path(None)
+                    print("✓ Wallpaper restored to original")
+                else:
+                    # Restore failed, show fallback
+                    result = subprocess.run(
+                        [sys.executable, str(PROJECT_DIR / "render.py"), "--done"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        cwd=str(PROJECT_DIR),
+                    )
+                    if result.returncode == 0:
+                        time.sleep(0.5)
+                        if set_gnome_wallpaper(WALLPAPER_FILE):
+                            print("✓ Wallpaper set to 'All Tasks Done!' (GNOME)")
+                        elif set_feh_wallpaper(WALLPAPER_FILE):
+                            print("✓ Wallpaper set to 'All Tasks Done!' (feh)")
+            else:
+                # Path doesn't exist: set fallback wallpaper and clear stored path
+                save_wallpaper_path(None)
+                result = subprocess.run(
+                    [sys.executable, str(PROJECT_DIR / "render.py"), "--done"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    cwd=str(PROJECT_DIR),
+                )
+                if result.returncode == 0:
+                    time.sleep(0.5)
+                    if set_gnome_wallpaper(WALLPAPER_FILE):
+                        print("✓ Wallpaper set to 'All Tasks Done!' (GNOME)")
+                    elif set_feh_wallpaper(WALLPAPER_FILE):
+                        print("✓ Wallpaper set to 'All Tasks Done!' (feh)")
+    else:
+        # List not empty, normal render
+        render()
 
 
 def list_todos() -> None:

@@ -18,26 +18,65 @@ TODO_FILE = PROJECT_DIR / "todos.json"
 OUTPUT = PROJECT_DIR / "wallpaper.png"
 
 
-def load_todos() -> list[str]:
+def _migrate_data(raw_data) -> dict:
+    """Migrate old array format to new dict format with metadata."""
+    if isinstance(raw_data, list):
+        # Old format: just an array of tasks
+        return {"tasks": raw_data, "wallpaper_path": None}
+    elif isinstance(raw_data, dict):
+        # Already in new format
+        if "tasks" not in raw_data:
+            return {"tasks": [], "wallpaper_path": None}
+        return raw_data
+    return {"tasks": [], "wallpaper_path": None}
+
+
+def _load_raw_data() -> dict:
+    """Load raw data from JSON file (internal)."""
     if not TODO_FILE.exists():
-        save_todos([])
-        return []
+        return {"tasks": [], "wallpaper_path": None}
 
     try:
         with open(TODO_FILE, "r", encoding="utf-8") as file:
             content = file.read().strip()
             if not content:
-                save_todos([])
-                return []
-            return json.loads(content)
+                return {"tasks": [], "wallpaper_path": None}
+            raw_data = json.loads(content)
+            return _migrate_data(raw_data)
     except json.JSONDecodeError:
-        save_todos([])
-        return []
+        return {"tasks": [], "wallpaper_path": None}
+
+
+def _save_raw_data(data: dict) -> None:
+    """Save raw data to JSON file (internal)."""
+    with open(TODO_FILE, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=2)
+
+
+def load_todos() -> list[str]:
+    """Load list of tasks."""
+    data = _load_raw_data()
+    return data.get("tasks", [])
 
 
 def save_todos(todos: list[str]) -> None:
-    with open(TODO_FILE, "w", encoding="utf-8") as file:
-        json.dump(todos, file, indent=2)
+    """Save list of tasks while preserving metadata."""
+    data = _load_raw_data()
+    data["tasks"] = todos
+    _save_raw_data(data)
+
+
+def load_wallpaper_path() -> str | None:
+    """Load stored original wallpaper path."""
+    data = _load_raw_data()
+    return data.get("wallpaper_path")
+
+
+def save_wallpaper_path(path: str | None) -> None:
+    """Save original wallpaper path."""
+    data = _load_raw_data()
+    data["wallpaper_path"] = path
+    _save_raw_data(data)
 
 
 def render_wallpaper(todos: list[str]) -> None:
@@ -77,11 +116,53 @@ def render_wallpaper(todos: list[str]) -> None:
     image.save(OUTPUT)
 
 
+def render_all_tasks_done() -> None:
+    """Render a celebratory 'All Tasks Done!' image."""
+    image = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
+    draw = ImageDraw.Draw(image)
+
+    title_font = ImageFont.truetype(
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        72,
+    )
+
+    subtitle_font = ImageFont.truetype(
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        48,
+    )
+
+    # Main message
+    draw.text(
+        (960, 300),
+        "All Tasks Done!",
+        fill=ACCENT,
+        font=title_font,
+        anchor="mm",
+    )
+
+    # Subtitle
+    draw.text(
+        (960, 500),
+        "Take a break, you've earned it! ✨",
+        fill=TEXT,
+        font=subtitle_font,
+        anchor="mm",
+    )
+
+    image.save(OUTPUT)
+
+
 def main() -> None:
     try:
-        todos = load_todos()
-        render_wallpaper(todos)
-        print(f"✓ Wallpaper rendered ({len(todos)} todos)")
+        # Check if --done flag is passed to render "all tasks done" image
+        import sys
+        if len(sys.argv) > 1 and sys.argv[1] == "--done":
+            render_all_tasks_done()
+            print("✓ 'All Tasks Done!' image rendered")
+        else:
+            todos = load_todos()
+            render_wallpaper(todos)
+            print(f"✓ Wallpaper rendered ({len(todos)} todos)")
     except FileNotFoundError as e:
         print(f"✗ Font not found: {e}")
         print("  Install DejaVuSans font: sudo apt install fonts-dejavu")
