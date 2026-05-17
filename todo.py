@@ -243,7 +243,7 @@ def sync_wallpaper() -> None:
     stored_wallpaper = load_wallpaper_path()
     if stored_wallpaper:
         restored_path = Path(unquote(stored_wallpaper))
-        if restored_path.exists() and restore_wallpaper(stored_wallpaper):
+        if restored_path.exists() and restore_wallpaper(str(restored_path)):
             save_wallpaper_path(None)
             print("✓ Wallpaper restored to original")
             return
