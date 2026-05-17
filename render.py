@@ -12,10 +12,9 @@ BACKGROUND = (20, 20, 30)
 TEXT = (240, 240, 240)
 ACCENT = (120, 200, 255)
 
-# Use absolute paths to work correctly when called from subprocess
-PROJECT_DIR = Path(__file__).parent.resolve()
-TODO_FILE = PROJECT_DIR / "todos.json"
-OUTPUT = PROJECT_DIR / "wallpaper.png"
+from paths import TODO_FILE, OUTPUT, ensure_migration
+# Ensure migration from repository to XDG locations
+ensure_migration(Path(__file__).parent.resolve())
 
 
 def _migrate_data(raw_data) -> dict:

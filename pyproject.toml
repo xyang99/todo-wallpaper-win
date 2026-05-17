@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "todo-wallpaper"
-version = "0.1.5"
+version = "0.1.6"
 description = "A CLI todo list that renders as your desktop wallpaper"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,6 +16,7 @@ authors = [
 
 dependencies = [
   "Pillow>=10.0.0",
+  "platformdirs>=3.11",
 ]
 
 keywords = ["todo", "wallpaper", "cli", "desktop", "gnome"]
@@ -38,4 +39,4 @@ Issues = "https://github.com/Yash-Thio/todo-wallpaper/issues"
 todo = "todo:main"
 
 [tool.setuptools]
-py-modules = ["todo", "render", "init"]
+py-modules = ["todo", "render", "init", "paths"]

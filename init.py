@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
-"""Initialize todo-wallpaper: run setup, install the CLI wrapper, and enable systemd autostart."""
+"""Initialize todo-wallpaper and enable systemd autostart."""
 
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 PROJECT_DIR = Path(__file__).parent
-HOME = Path.home()
-SYSTEMD_DIR = HOME / ".config/systemd/user"
+SYSTEMD_DIR = Path.home() / ".config/systemd/user"
 SERVICE_FILE = SYSTEMD_DIR / "todo-wallpaper-init.service"
-LOCAL_BIN_DIR = HOME / ".local/bin"
-WRAPPER_FILE = PROJECT_DIR / "todo"
-WRAPPER_LINK = LOCAL_BIN_DIR / "todo"
 
 SERVICE_CONTENT = """[Unit]
 Description=Todo-Wallpaper Initial Render
@@ -21,7 +16,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=oneshot
-ExecStart={python_path} {render_script}
+ExecStart={python_path} -m todo sync
 RemainAfterExit=yes
 
 [Install]
@@ -63,24 +58,18 @@ def main() -> int:
     else:
         print("✓ Skipping source setup checks (package install already handled dependencies)")
 
-    # Step 2: Install the command wrapper
-    print("\nStep 2: Installing the todo command wrapper...")
-    if WRAPPER_FILE.exists():
-        WRAPPER_FILE.chmod(0o755)
-        LOCAL_BIN_DIR.mkdir(parents=True, exist_ok=True)
-
-        if WRAPPER_LINK.exists() or WRAPPER_LINK.is_symlink():
-            WRAPPER_LINK.unlink()
-
-        WRAPPER_LINK.symlink_to(WRAPPER_FILE)
-        print(f"✓ Installed command: {WRAPPER_LINK}")
+    # Step 2: Confirm packaged command availability
+    print("\nStep 2: Checking the installed todo command...")
+    command_check = subprocess.run(
+        [sys.executable, "-m", "todo", "list"],
+        capture_output=True,
+        text=True,
+    )
+    if command_check.returncode != 0:
+        print("⚠ The installed package could not be executed with 'python -m todo'.")
+        print("  Install it with: pip install todo-wallpaper")
     else:
-        print("✓ Installed command: todo (package entry point)")
-
-    current_path = os.environ.get("PATH", "")
-    if str(LOCAL_BIN_DIR) not in current_path.split(":"):
-        print(f"⚠ {LOCAL_BIN_DIR} is not on your PATH yet")
-        print(f"  Add this to your shell config: export PATH=\"{LOCAL_BIN_DIR}:$PATH\"")
+        print("✓ Installed package entrypoint is available")
 
     # Step 3: Create systemd user service
     print("\nStep 3: Setting up autostart...")
@@ -88,7 +77,6 @@ def main() -> int:
 
     service_content = SERVICE_CONTENT.format(
         python_path=sys.executable,
-        render_script=PROJECT_DIR / "render.py",
     )
 
     SERVICE_FILE.write_text(service_content)
@@ -110,11 +98,11 @@ def main() -> int:
             print("  todo list")
             print("  todo remove 1")
             print("\nTo manually trigger wallpaper render:")
-            print("  python3 render.py")
+            print("  todo sync")
             return 0
 
     print("\n⚠ Failed to enable autostart (systemd user services may not be available)")
-    print("You can still use: python3 todo.py [add|remove|list]")
+    print("You can still use: todo [add|remove|list|sync]")
     return 0
 
 

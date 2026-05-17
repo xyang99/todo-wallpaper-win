@@ -5,10 +5,10 @@ import time
 from pathlib import Path
 from urllib.parse import unquote
 
-# Use absolute paths to work correctly when called from subprocess
+from paths import TODO_FILE, WALLPAPER_FILE, ensure_migration
+# Ensure migration from repository to XDG locations
 PROJECT_DIR = Path(__file__).parent.resolve()
-TODO_FILE = PROJECT_DIR / "todos.json"
-WALLPAPER_FILE = PROJECT_DIR / "wallpaper.png"
+ensure_migration(PROJECT_DIR)
 
 
 def _migrate_data(raw_data) -> dict:
@@ -195,6 +195,31 @@ def render() -> None:
         exit(1)
 
 
+def render_done_wallpaper() -> bool:
+    """Render and apply the fallback 'All Tasks Done!' wallpaper."""
+    result = subprocess.run(
+        [sys.executable, str(PROJECT_DIR / "render.py"), "--done"],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=str(PROJECT_DIR),
+    )
+    if result.returncode != 0:
+        print("✗ Failed to generate 'all tasks done' image")
+        return False
+
+    time.sleep(0.5)
+    if set_gnome_wallpaper(WALLPAPER_FILE):
+        print("✓ Wallpaper set to 'All Tasks Done!' (GNOME)")
+        return True
+    if set_feh_wallpaper(WALLPAPER_FILE):
+        print("✓ Wallpaper set to 'All Tasks Done!' (feh)")
+        return True
+
+    print("✗ Failed to set wallpaper")
+    return False
+
+
 def restore_wallpaper(wallpaper_path: str) -> bool:
     """Restore wallpaper from stored path."""
     path = Path(wallpaper_path)
@@ -206,6 +231,26 @@ def restore_wallpaper(wallpaper_path: str) -> bool:
     elif set_feh_wallpaper(path):
         return True
     return False
+
+
+def sync_wallpaper() -> None:
+    """Apply the current todo state to the desktop wallpaper."""
+    todos = load_todos()
+    if todos:
+        render()
+        return
+
+    stored_wallpaper = load_wallpaper_path()
+    if stored_wallpaper:
+        restored_path = Path(unquote(stored_wallpaper))
+        if restored_path.exists() and restore_wallpaper(stored_wallpaper):
+            save_wallpaper_path(None)
+            print("✓ Wallpaper restored to original")
+            return
+
+        save_wallpaper_path(None)
+
+    render_done_wallpaper()
 
 
 def add_todo(text: str) -> None:
@@ -241,67 +286,7 @@ def remove_todo(index: int) -> None:
 
     # Check if list is now empty
     if len(todos) == 0:
-        stored_wallpaper = load_wallpaper_path()
-        stored_wallpaper = Path(unquote(stored_wallpaper))
-
-        # Step 1: Check if wallpaper_path is null
-        if stored_wallpaper is None:
-            # Step 2: Set fallback wallpaper
-            result = subprocess.run(
-                [sys.executable, str(PROJECT_DIR / "render.py"), "--done"],
-                capture_output=True,
-                text=True,
-                check=False,
-                cwd=str(PROJECT_DIR),
-            )
-            if result.returncode == 0:
-                time.sleep(0.5)
-                if set_gnome_wallpaper(WALLPAPER_FILE):
-                    print("✓ Wallpaper set to 'All Tasks Done!' (GNOME)")
-                elif set_feh_wallpaper(WALLPAPER_FILE):
-                    print("✓ Wallpaper set to 'All Tasks Done!' (feh)")
-                else:
-                    print("✗ Failed to set wallpaper")
-            else:
-                print("✗ Failed to generate 'all tasks done' image")
-        else:
-            # Step 3-5: wallpaper_path is not null, check if path exists
-            if Path(stored_wallpaper).exists():
-                # Path exists: restore wallpaper and clear the path in todos.json
-                if restore_wallpaper(stored_wallpaper):
-                    save_wallpaper_path(None)
-                    print("✓ Wallpaper restored to original")
-                else:
-                    # Restore failed, show fallback
-                    result = subprocess.run(
-                        [sys.executable, str(PROJECT_DIR / "render.py"), "--done"],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                        cwd=str(PROJECT_DIR),
-                    )
-                    if result.returncode == 0:
-                        time.sleep(0.5)
-                        if set_gnome_wallpaper(WALLPAPER_FILE):
-                            print("✓ Wallpaper set to 'All Tasks Done!' (GNOME)")
-                        elif set_feh_wallpaper(WALLPAPER_FILE):
-                            print("✓ Wallpaper set to 'All Tasks Done!' (feh)")
-            else:
-                # Path doesn't exist: set fallback wallpaper and clear stored path
-                save_wallpaper_path(None)
-                result = subprocess.run(
-                    [sys.executable, str(PROJECT_DIR / "render.py"), "--done"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    cwd=str(PROJECT_DIR),
-                )
-                if result.returncode == 0:
-                    time.sleep(0.5)
-                    if set_gnome_wallpaper(WALLPAPER_FILE):
-                        print("✓ Wallpaper set to 'All Tasks Done!' (GNOME)")
-                    elif set_feh_wallpaper(WALLPAPER_FILE):
-                        print("✓ Wallpaper set to 'All Tasks Done!' (feh)")
+        sync_wallpaper()
     else:
         # List not empty, normal render
         render()
@@ -320,6 +305,7 @@ def main() -> None:
         print("  add TEXT     - Add a new todo")
         print("  remove IDX   - Remove todo by 1-based index")
         print("  list         - Show all todos")
+        print("  sync         - Re-apply the current wallpaper state")
         print("  init         - Set up wallpaper autostart")
         exit(1)
 
@@ -348,6 +334,9 @@ def main() -> None:
         from init import main as init_main
 
         exit(init_main())
+
+    elif command == "sync":
+        sync_wallpaper()
 
     else:
         print(f"✗ Unknown command: {command}")

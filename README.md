@@ -9,101 +9,23 @@ A simple interactive todo list that appears as your Linux desktop wallpaper.
 - 🚀 **Automatic startup** on login (via systemd)
 - 🎨 **Clean, readable formatting** with blue accent
 
-## Architecture
-
-```
-todo-wallpaper/
-├── todos.json              # Todo storage (JSON)
-├── render.py               # Wallpaper renderer (Pillow)
-├── todo.py                 # CLI interface
-├── todo                    # Shell wrapper for the global command
-├── watch.py                # File watcher (optional daemon)
-├── init.py                 # One-command setup
-
-└── wallpaper.png           # Generated wallpaper
-```
-
 ## Installation
-
-### Prerequisites
-
-Ensure you have Python 3 installed:
-
-```bash
-python3 --version  # Should be 3.7+
-```
-
-### Quick Setup (One Command)
-
-```bash
-cd ~/projects/random/todo-wallpaper
-python3 init.py
-```
-
-This will:
-
-1. ✓ Check and install Python dependencies (Pillow, watchdog)
-2. ✓ Verify system tools (feh, fonts)
-3. ✓ Generate your first wallpaper
-4. ✓ Install the `todo` command into `~/.local/bin`
-5. ✓ Enable automatic startup on login via systemd
-
-### Install via pip (recommended)
-
-Install from PyPI with pip:
 
 ```bash
 pip install todo-wallpaper
 ```
 
-After install, run the packaged setup step to enable autostart and install the command wrapper:
+After installation, enable autostart:
 
 ```bash
 todo init
 ```
 
-### Install via Homebrew (macOS / Linuxbrew)
+### Data Locations
 
-You can create a Homebrew tap or formula that installs the package; we recommend using the PyPI wheel in the formula. Example (once tap exists):
-
-```bash
-brew install Yash-Thio/tap/todo-wallpaper
-```
-
-### Convenience installer (curl|bash)
-
-If you prefer a single-line installer, you can use the hosted `install.sh` which wraps a pip install:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/Yash-Thio/todo-wallpaper/main/install.sh | bash
-```
-
-This script is a thin convenience wrapper around `pip install`. It supports `--dry-run` and `--system` flags.
-
-### Manual Setup (advanced)
-
-If you prefer to set up manually from source:
-
-```bash
-# Install dependencies
-pip install Pillow watchdog
-
-# Install system tools
-sudo apt install feh fonts-dejavu
-
-# Generate initial wallpaper
-python3 render.py
-
-# Make sure ~/.local/bin is on PATH
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-
-# Enable autostart (Linux systemd)
-mkdir -p ~/.config/systemd/user
-cp todo-wallpaper-init.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable todo-wallpaper-init.service
-```
+- `~/.local/share/todo-wallpaper/todos.json` — todo list storage
+- `~/.cache/todo-wallpaper/wallpaper.png` — generated wallpaper
+- `~/.config/systemd/user/todo-wallpaper-init.service` — autostart service
 
 ## Usage
 
@@ -164,99 +86,6 @@ todo list
 # Mark items as done
 todo remove 1  # ✓ emails done
 todo remove 1  # ✓ standup done
-```
-
-## Files Explained
-
-| File         | Purpose                                 |
-| ------------ | --------------------------------------- |
-| `todos.json` | JSON file storing your todo list        |
-| `render.py`  | Generates wallpaper PNG from todos.json |
-| `todo.py`    | CLI tool to add/remove/list todos       |
-| `todo`       | Shell wrapper for the `todo` command    |
-
-| `init.py` | One-command installation + autostart setup |
-| `wallpaper.png` | Generated wallpaper image |
-
-## Customization
-
-### Colors
-
-Edit `render.py`:
-
-```python
-BACKGROUND = (20, 20, 30)      # Dark blue-gray
-TEXT = (240, 240, 240)         # Light white
-ACCENT = (120, 200, 255)       # Light blue
-```
-
-### Font Size
-
-Edit `render.py`:
-
-```python
-title_font = ImageFont.truetype(..., 54)    # Title (TODO)
-font = ImageFont.truetype(..., 36)          # Items
-```
-
-### Wallpaper Dimensions
-
-Edit `render.py`:
-
-```python
-WIDTH = 1920
-HEIGHT = 1080
-```
-
-### Font Path
-
-If you have a different font installed, update `render.py`:
-
-```python
-font = ImageFont.truetype("/path/to/font.ttf", 36)
-```
-
-Find available fonts on Linux:
-
-```bash
-fc-list | grep -i "font-name"
-```
-
-## Troubleshooting
-
-### Dependencies missing after `todo init`
-
-If you see errors about missing tools, install the required system packages:
-
-```bash
-sudo apt install feh fonts-dejavu
-```
-
-Then run `todo init` again.
-
-### "Font not found"
-
-Ensure fonts-dejavu is installed:
-
-```bash
-sudo apt install fonts-dejavu
-# Or check available fonts:
-fc-list | head -20
-```
-
-### "Pillow not found"
-
-```bash
-pip install Pillow
-```
-
-### Wallpaper not updating on startup
-
-Check systemd service status:
-
-```bash
-systemctl --user status todo-wallpaper-init.service
-journalctl --user -u todo-wallpaper-init.service -n 20
 ```
 
 ### Want to stop autostart?
@@ -337,7 +166,7 @@ todo remove 1
 
 ## License
 
-MIT 
+MIT
 
 ## Support
 

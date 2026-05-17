@@ -5,7 +5,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/python3 /home/thio/projects/random/todo-wallpaper/render.py
+ExecStart=/usr/bin/env python3 -m todo sync
 RemainAfterExit=yes
 
 [Install]
