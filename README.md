@@ -53,7 +53,7 @@ todo-wallpaper sync
 On Windows, the app sets wallpaper with the native `SystemParametersInfoW` API.
 On Linux, it tries GNOME `gsettings` first, then `feh`.
 
-## Autostart
+### Autostart
 
 ```powershell
 todo-wallpaper init
