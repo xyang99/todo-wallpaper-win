@@ -3,40 +3,39 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "todo-wallpaper"
-version = "0.1.8"
-description = "A CLI todo list that renders as your desktop wallpaper"
+name = "todo-wallpaper-win"
+version = "0.2.0"
+description = "A CLI todo list that renders as your desktop wallpaper on Windows and Linux"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-
 authors = [
   { name = "Yash Pandey", email = "pandeyash06@gmail.com" }
+  { name = "xyang99" }
 ]
-
 dependencies = [
   "Pillow>=10.0.0",
   "platformdirs>=3.11",
 ]
-
-keywords = ["todo", "wallpaper", "cli", "desktop", "gnome"]
-
+keywords = ["todo", "wallpaper", "cli", "desktop", "windows", "linux"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX :: Linux",
   "Environment :: Console",
 ]
 
 [project.urls]
-Repository = "https://github.com/Yash-Thio/todo-wallpaper"
-Issues = "https://github.com/Yash-Thio/todo-wallpaper/issues"
+Repository = "https://github.com/xyang99/todo-wallpaper-win"
+Issues = "https://github.com/xyang99/todo-wallpaper-win/issues"
 
 [project.scripts]
 todo = "todo:main"
+todo-wallpaper = "todo:main"
 
 [tool.setuptools]
 py-modules = ["todo", "render", "init", "paths"]
