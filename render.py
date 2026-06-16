@@ -10,7 +10,7 @@ from paths import TODO_FILE, OUTPUT, ensure_migration
 WIDTH = 1920
 HEIGHT = 1080
 
-BACKGROUND = (205, 235, 205)
+BACKGROUND = (240, 255, 240)
 TEXT = (30, 55, 45)
 ACCENT = (35, 115, 80)
 
